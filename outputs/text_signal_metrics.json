@@ -1,0 +1,9 @@
+{
+  "text_only_roc_auc": 0.799,
+  "recovery_by_intent": {
+    "resistant": 0.033,
+    "hardship": 0.194,
+    "neutral": 0.201,
+    "cooperative": 0.597
+  }
+}

@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep generated data & charts so the GitHub README renders,
+# but ignore large/temporary artefacts if you regenerate locally.
+# (Comment the next lines out if you DON'T want to commit data.)
+# data/*.csv

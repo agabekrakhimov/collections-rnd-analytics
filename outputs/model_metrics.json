@@ -1,0 +1,15 @@
+{
+  "models": {
+    "Logistic Regression": {
+      "roc_auc": 0.7334,
+      "avg_precision": 0.4835
+    },
+    "Gradient Boosting": {
+      "roc_auc": 0.728,
+      "avg_precision": 0.4706
+    }
+  },
+  "best_model": "Logistic Regression",
+  "top_decile_recovery": 60.5,
+  "bottom_decile_recovery": 5.0
+}

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collections R&D — Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{--teal:#1f9e89;--coral:#e8743b;--navy:#2c3e50;--bg:#f4f6f8;--card:#fff;--muted:#7a8694;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--navy);padding:28px;line-height:1.45;}
+  header{margin-bottom:8px;}
+  h1{font-size:24px;font-weight:800;}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px;}
+  .grid{display:grid;gap:18px;}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}
+  .charts{grid-template-columns:repeat(auto-fit,minmax(380px,1fr));margin-top:18px;}
+  .card{background:var(--card);border-radius:14px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.07);}
+  .kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .kpi .value{font-size:30px;font-weight:800;margin-top:6px;}
+  .kpi .note{font-size:12px;color:var(--teal);margin-top:4px;font-weight:600;}
+  .card h3{font-size:15px;margin-bottom:4px;}
+  .card p.cap{font-size:12px;color:var(--muted);margin-bottom:12px;}
+  canvas{max-height:280px;}
+  footer{margin-top:26px;font-size:12px;color:var(--muted);}
+  .pill{display:inline-block;background:#e8f5f2;color:var(--teal);font-size:11px;font-weight:700;
+        padding:3px 9px;border-radius:20px;margin-left:8px;vertical-align:middle;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Collections R&amp;D — Analytics Dashboard <span class="pill">synthetic data</span></h1>
+  <div class="sub">Recovery performance, behavioural signals &amp; model lift across an 8,000-account delinquency portfolio</div>
+</header>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Accounts in collections</div><div class="value">8,000</div></div>
+  <div class="card kpi"><div class="label">60-day recovery rate</div><div class="value">24.4%</div></div>
+  <div class="card kpi"><div class="label">Balance at risk</div><div class="value">$30.3M</div></div>
+  <div class="card kpi"><div class="label">Recovered</div><div class="value">$7.76M</div><div class="note">25.6% of balance</div></div>
+  <div class="card kpi"><div class="label">Model ROC-AUC</div><div class="value">0.73</div><div class="note">0.80 from call text alone</div></div>
+  <div class="card kpi"><div class="label">Top-decile lift</div><div class="value">12.1×</div><div class="note">60% vs 5% recovery</div></div>
+</div>
+
+<div class="grid charts">
+  <div class="card"><h3>Recovery rate by days-past-due</h3><p class="cap">Earlier intervention recovers far more.</p><canvas id="bucket"></canvas></div>
+  <div class="card"><h3>Channel effectiveness</h3><p class="cap">Engagement &amp; promise-to-pay by channel.</p><canvas id="channel"></canvas></div>
+  <div class="card"><h3>Engaged conversations vs recovery</h3><p class="cap">Talking to people is the lever.</p><canvas id="intensity"></canvas></div>
+  <div class="card"><h3>Promise-to-pay lift by risk band</h3><p class="cap">PTP roughly doubles recovery.</p><canvas id="ptp"></canvas></div>
+  <div class="card"><h3>Call intent vs recovery (NLP)</h3><p class="cap">Signal extracted from transcripts.</p><canvas id="intent"></canvas></div>
+  <div class="card"><h3>Model score deciles</h3><p class="cap">Actual recovery by predicted-probability decile.</p><canvas id="decile"></canvas></div>
+</div>
+
+<footer>
+  Built by Ogabek · synthetic data, no real customers · stack: Python (pandas, scikit-learn), SQL, Chart.js<br>
+  Source &amp; methodology in the project README.
+</footer>
+
+<script>
+const TEAL="#1f9e89", CORAL="#e8743b", NAVY="#2c3e50", GREY="#b0b8c1";
+Chart.defaults.font.family="-apple-system,Segoe UI,Roboto,sans-serif";
+Chart.defaults.plugins.legend.labels.boxWidth=12;
+const pct=v=>v+"%";
+
+new Chart(bucket,{type:'bar',data:{labels:['1-15','31-60','61-90','90+'],
+  datasets:[{label:'Recovery %',data:[27.2,23.0,17.7,15.2],backgroundColor:TEAL}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:pct}}}}});
+
+new Chart(channel,{type:'bar',data:{labels:['SMS','Email','WhatsApp','Call'],
+  datasets:[{label:'Engagement %',data:[29.8,30.3,39.0,41.5],backgroundColor:TEAL},
+            {label:'Promise-to-pay %',data:[8.3,9.2,11.9,12.0],backgroundColor:CORAL}]},
+  options:{scales:{y:{ticks:{callback:pct}}}}});
+
+new Chart(intensity,{type:'line',data:{labels:['0','1','2-3','4+'],
+  datasets:[{label:'Recovery %',data:[15.9,20.5,27.7,43.2],borderColor:NAVY,
+             backgroundColor:NAVY,tension:.25,pointRadius:5,borderWidth:3}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:pct}}}}});
+
+new Chart(ptp,{type:'bar',data:{labels:['Prime','Subprime'],
+  datasets:[{label:'No PTP',data:[23.0,10.4],backgroundColor:GREY},
+            {label:'PTP secured',data:[45.3,23.9],backgroundColor:TEAL}]},
+  options:{scales:{y:{ticks:{callback:pct}}}}});
+
+new Chart(intent,{type:'bar',data:{labels:['Resistant','Hardship','Neutral','Cooperative'],
+  datasets:[{label:'Recovery %',data:[3.3,19.4,20.1,59.7],
+             backgroundColor:[CORAL,CORAL,GREY,TEAL]}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:pct}}}}});
+
+new Chart(decile,{type:'bar',data:{labels:['1','2','3','4','5','6','7','8','9','10'],
+  datasets:[{label:'Actual recovery %',
+    data:[5,8,11,14,18,22,28,35,46,60],backgroundColor:NAVY}]},
+  options:{plugins:{legend:{display:false}},
+    scales:{y:{ticks:{callback:pct}},x:{title:{display:true,text:'predicted-probability decile'}}}}});
+</script>
+</body>
+</html>
