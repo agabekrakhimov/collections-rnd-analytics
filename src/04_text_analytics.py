@@ -21,9 +21,10 @@ Run after 01:
     python 04_text_analytics.py
 """
 
-import os, json, re
-import numpy as np
+import os, json
 import pandas as pd
+
+from metrics import tag_intent
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
@@ -53,17 +54,6 @@ print(f"Transcripts analysed: {len(df)}")
 # ---------------------------------------------------------------------------
 # 1. Rule-based intent detection (lexicon approach)
 # ---------------------------------------------------------------------------
-LEX = {
-    "hardship":    ["lost my job", "hospital", "hours were cut", "emergency", "tight"],
-    "cooperative": ["payment plan", "pay next week", "partial payment", "clear this", "options"],
-    "resistant":   ["dispute", "stop calling", "already paid", "not going to pay", "do not recognise"],
-}
-def tag_intent(text):
-    t = text.lower()
-    for intent, kws in LEX.items():
-        if any(k in t for k in kws):
-            return intent
-    return "neutral"
 df["intent"] = df["transcript"].apply(tag_intent)
 
 intent_rec = df.groupby("intent")["recovered_60d"].agg(["mean", "count"]).sort_values("mean")

@@ -9,11 +9,20 @@ Run after 01_generate_data.py:
     python 02_eda_signals.py
 """
 
+import json
 import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+
+from metrics import (
+    build_kpis,
+    channel_effectiveness,
+    ptp_lift,
+    recovery_by_bucket,
+    recovery_by_engaged_band,
+)
 
 DATA = os.path.join(os.path.dirname(__file__), "..", "data")
 OUT = os.path.join(os.path.dirname(__file__), "..", "outputs", "charts")
@@ -31,10 +40,6 @@ TEAL, CORAL, NAVY = "#1f9e89", "#e8743b", "#2c3e50"
 accounts = pd.read_csv(os.path.join(DATA, "accounts.csv"))
 contacts = pd.read_csv(os.path.join(DATA, "contacts.csv"))
 
-# only buckets that actually occur in the data, in DPD order
-bucket_order = [b for b in ["1-15 DPD", "16-30 DPD", "31-60 DPD", "61-90 DPD", "90+ DPD"]
-                if b in set(accounts["delinquency_bucket"])]
-
 print("=" * 64)
 print("EDA & BEHAVIOURAL SIGNALS")
 print("=" * 64)
@@ -45,8 +50,7 @@ print(f"Total recovered:       ${accounts['amount_recovered'].sum():,.0f}")
 # ---------------------------------------------------------------------------
 # CHART 1 — Recovery rate by delinquency bucket
 # ---------------------------------------------------------------------------
-g = (accounts.groupby("delinquency_bucket")["recovered_60d"].mean()
-     .reindex(bucket_order))
+g = recovery_by_bucket(accounts)
 fig, ax = plt.subplots(figsize=(7.5, 4.2))
 bars = ax.bar(g.index, g.values * 100, color=TEAL)
 ax.bar_label(bars, fmt="%.0f%%", padding=3)
@@ -59,9 +63,7 @@ print("\n[1] Recovery by bucket:\n", (g * 100).round(1).to_string())
 # ---------------------------------------------------------------------------
 # CHART 2 — Channel engagement & promise-to-pay rate
 # ---------------------------------------------------------------------------
-ch = contacts.groupby("channel").agg(
-    engagement=("engaged", "mean"),
-    ptp=("outcome", lambda s: (s == "promise_to_pay").mean())).sort_values("engagement")
+ch = channel_effectiveness(contacts)
 x = np.arange(len(ch)); w = 0.38
 fig, ax = plt.subplots(figsize=(7.5, 4.2))
 ax.bar(x - w/2, ch["engagement"] * 100, w, label="Engagement rate", color=TEAL)
@@ -88,14 +90,8 @@ plt.tight_layout(); plt.savefig(os.path.join(OUT, "03_contact_timing_heatmap.png
 # ---------------------------------------------------------------------------
 # CHART 4 — Contact intensity vs recovery (diminishing returns?)
 # ---------------------------------------------------------------------------
-def band(n):
-    if n == 0: return "0"
-    if n == 1: return "1"
-    if n <= 3: return "2-3"
-    return "4+"
-accounts["engaged_band"] = accounts["n_engaged"].apply(band)
 order = ["0", "1", "2-3", "4+"]
-ig = accounts.groupby("engaged_band")["recovered_60d"].mean().reindex(order)
+ig = recovery_by_engaged_band(accounts)
 fig, ax = plt.subplots(figsize=(7.5, 4.2))
 ax.plot(order, ig.values * 100, "-o", color=NAVY, linewidth=2.5, markersize=9)
 for xi, yi in zip(order, ig.values * 100):
@@ -108,11 +104,7 @@ print("\n[4] Recovery by engaged-contact band:\n", (ig * 100).round(1).to_string
 # ---------------------------------------------------------------------------
 # CHART 5 — Promise-to-pay lift, stratified by risk band
 # ---------------------------------------------------------------------------
-ptp = accounts.copy()
-ptp["risk_band"] = np.where(ptp["credit_score"] >= 680, "prime", "subprime")
-ptp["has_ptp"] = (ptp["promise_to_pay"] > 0).map({True: "PTP secured", False: "No PTP"})
-lift = ptp.groupby(["risk_band", "has_ptp"])["recovered_60d"].mean().unstack()
-lift = lift[["No PTP", "PTP secured"]]
+lift = ptp_lift(accounts)
 x = np.arange(len(lift)); w = 0.38
 fig, ax = plt.subplots(figsize=(7.5, 4.2))
 ax.bar(x - w/2, lift["No PTP"] * 100, w, label="No PTP", color="#b0b8c1")
@@ -123,17 +115,10 @@ ax.legend()
 plt.tight_layout(); plt.savefig(os.path.join(OUT, "05_ptp_lift.png")); plt.close()
 print("\n[5] PTP lift by risk band:\n", (lift * 100).round(1).to_string())
 
-# save a small KPI json for the dashboard
-import json
-kpis = {
-    "n_accounts": int(len(accounts)),
-    "recovery_rate": float(accounts["recovered_60d"].mean()),
-    "balance_at_risk": float(accounts["outstanding_balance"].sum()),
-    "recovered": float(accounts["amount_recovered"].sum()),
-    "recovery_by_bucket": {k: float(v) for k, v in (g).items()},
-    "channel_engagement": {k: float(v) for k, v in ch["engagement"].items()},
-}
+# save a small KPI json for the dashboard. allow_nan=False so an empty
+# bucket cannot be written as NaN (that file is not valid JSON).
+kpis = build_kpis(accounts, contacts)
 with open(os.path.join(DATA, "kpis.json"), "w") as f:
-    json.dump(kpis, f, indent=2)
+    json.dump(kpis, f, indent=2, allow_nan=False)
 
 print("\nCharts saved to outputs/charts/. EDA complete.")
