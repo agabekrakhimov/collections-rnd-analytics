@@ -85,7 +85,11 @@ collections-rnd-analytics/
 │   ├── 01_generate_data.py    ← synthetic portfolio generator
 │   ├── 02_eda_signals.py      ← EDA + behavioural-signal charts
 │   ├── 03_model.py            ← recovery-propensity model (LogReg vs Gradient Boosting)
-│   └── 04_text_analytics.py   ← NLP on call transcripts (TF-IDF + intent tagging)
+│   ├── 04_text_analytics.py   ← NLP on call transcripts (TF-IDF + intent tagging)
+│   ├── metrics.py             ← shared buckets, rollups, rates, intent tags
+│   └── validate_data.py       ← input checks (keys, domains, rollups, KPIs)
+├── tests/                     ← unit tests for metrics + validation
+├── .github/workflows/tests.yml
 ├── outputs/
 │   ├── charts/                ← 10 PNG charts
 │   ├── dashboard.html         ← interactive dashboard
@@ -122,12 +126,33 @@ bash run_all.sh
 #   …or run the steps individually:
 cd src
 python 01_generate_data.py
+python validate_data.py
 python 02_eda_signals.py
 python 03_model.py
 python 04_text_analytics.py
 ```
 
 All charts land in `outputs/charts/`; open `outputs/dashboard.html` in a browser.
+
+`run_all.sh` checks the generated tables before the charts and the model run.
+
+---
+
+## Checks
+
+Bucket boundaries, contact rollups, recovery rates, promise-to-pay lift, and
+call-intent tags live in `src/metrics.py`. `src/validate_data.py` checks the
+CSVs those scripts read: primary keys, foreign keys, allowed values, that
+`delinquency_bucket` matches days-past-due, that account totals match the
+contact log, and that payments sit in the 60-day window. It also requires
+`data/kpis.json` to be strict JSON whose rates match the tables. An empty
+delinquency bucket used to be written as `NaN`, which Python accepts and a
+normal JSON parser does not.
+
+```bash
+pytest -q
+python src/validate_data.py
+```
 
 ---
 
