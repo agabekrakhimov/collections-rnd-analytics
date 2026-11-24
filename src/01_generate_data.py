@@ -22,6 +22,8 @@ import os
 import numpy as np
 import pandas as pd
 
+from metrics import contact_activity, delinquency_bucket
+
 RNG = np.random.default_rng(42)          # reproducible
 N_CUSTOMERS = 8000                       # portfolio size
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -76,17 +78,6 @@ outstanding = outstanding.clip(80, 20000)
 # Days past due when account entered the collections workflow.
 dpd_entry = RNG.choice([8, 15, 31, 61, 91], N_CUSTOMERS, p=[0.30, 0.30, 0.22, 0.12, 0.06])
 
-def bucket(d):
-    if d <= 15:
-        return "1-15 DPD"
-    if d <= 30:
-        return "16-30 DPD"
-    if d <= 60:
-        return "31-60 DPD"
-    if d <= 90:
-        return "61-90 DPD"
-    return "90+ DPD"
-
 entry_dates = pd.to_datetime("2025-01-01") + pd.to_timedelta(RNG.integers(0, 150, N_CUSTOMERS), unit="D")
 
 accounts = pd.DataFrame({
@@ -95,7 +86,7 @@ accounts = pd.DataFrame({
     "product": prod,
     "outstanding_balance": outstanding,
     "dpd_at_entry": dpd_entry,
-    "delinquency_bucket": [bucket(d) for d in dpd_entry],
+    "delinquency_bucket": [delinquency_bucket(d) for d in dpd_entry],
     "entered_collections_date": entry_dates,
 })
 accounts = accounts.merge(customers[["customer_id", "credit_score", "employment_status",
@@ -144,12 +135,7 @@ contacts = pd.DataFrame(contact_rows, columns=[
 # ---------------------------------------------------------------------------
 # 4. Derive RECOVERY OUTCOME per account from the signals above
 # ---------------------------------------------------------------------------
-agg = contacts.groupby("account_id").agg(
-    n_contacts=("contact_id", "count"),
-    n_engaged=("engaged", "sum"),
-    promise_to_pay=("outcome", lambda s: (s == "promise_to_pay").sum()),
-    refused=("outcome", lambda s: (s == "refused").sum()),
-).reset_index()
+agg = contact_activity(contacts)
 accounts = accounts.merge(agg, on="account_id", how="left").fillna(
     {"n_contacts": 0, "n_engaged": 0, "promise_to_pay": 0, "refused": 0})
 
